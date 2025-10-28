@@ -171,8 +171,15 @@ print(f"sic: {sic_p}, industry: {ind_p}, population: {pop_p}")
 pairs_df['cosine_distance'] = 1 - pairs_df['cosine_similarity']
 
 scaler = StandardScaler()
-pairs_df['cosine_distance_scaled'] = scaler.fit_transform(pairs_df[['cosine_distance']])
 
+all_years = sorted(pairs_df['year'].unique())
+n_total_years = len(all_years)
+split_B_end = int(0.75 * n_total_years)
+
+train_mask = pairs_df['year'].isin(all_years[:split_B_end])
+scaler.fit(pairs_df.loc[train_mask, ['cosine_distance']])
+
+pairs_df['cosine_distance_scaled'] = scaler.transform(pairs_df[['cosine_distance']])
 
 # Helper functions:
 
@@ -320,7 +327,7 @@ def optimise_cluster_parameters(TO_ANALYSE_DF, pairs_df, use_holdout=True):
 
         if use_holdout:
             # Simple evaluation on Period A and Period B separately
-            
+
             # Evaluate on Period A (25% of total data)
             period_A_df = optimization_df[optimization_df['year'].isin(years_A)]
             cluster_df_A = perform_clustering_per_year(
@@ -335,8 +342,8 @@ def optimise_cluster_parameters(TO_ANALYSE_DF, pairs_df, use_holdout=True):
                 cluster_type="PeriodA"
             )
             score_A = avg_corr_A['PeriodAAvgCorrelation'].mean()
-            
-            # Evaluate on Period B (50% of total data)  
+
+            # Evaluate on Period B (50% of total data)
             period_B_df = optimization_df[optimization_df['year'].isin(years_B)]
             cluster_df_B = perform_clustering_per_year(
                 TO_ANALYSE_DF=period_B_df,
@@ -350,17 +357,17 @@ def optimise_cluster_parameters(TO_ANALYSE_DF, pairs_df, use_holdout=True):
                 cluster_type="PeriodB"
             )
             score_B = avg_corr_B['PeriodBAvgCorrelation'].mean()
-            
+
             # Average across both periods (as stated in paper)
             overall_avg_corr = (score_A + score_B) / 2
-            
+
             # Handle NaN cases
             if np.isnan(overall_avg_corr):
                 overall_avg_corr = -np.inf
-                
+
             # Log the parameters and the resulting correlation
             logging.info(f"Threshold: {threshold}, Score A: {score_A:.4f}, Score B: {score_B:.4f}, Average: {overall_avg_corr:.4f}")
-            
+
         else:
             # Original behavior - evaluate on all optimization data
             cluster_df = perform_clustering_per_year(
@@ -375,10 +382,10 @@ def optimise_cluster_parameters(TO_ANALYSE_DF, pairs_df, use_holdout=True):
                 cluster_type="All"
             )
             overall_avg_corr = avg_corr_df['AllAvgCorrelation'].mean()
-            
+
             if np.isnan(overall_avg_corr):
                 overall_avg_corr = -np.inf
-                
+
             logging.info(f"Threshold: {threshold}, Average Correlation: {overall_avg_corr:.4f}")
 
         return overall_avg_corr  # Optuna will maximize this
